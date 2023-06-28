@@ -1,7 +1,5 @@
 import { NextApiRequest, NextApiResponse } from "next";
-
-import jwt from "jsonwebtoken";
-
+import axios from "axios";
 
 export default async function handler(
   req: NextApiRequest,
@@ -10,9 +8,14 @@ export default async function handler(
   const bearerToken = req.headers["authorization"] as string;
   const token = bearerToken.split(" ")[1];
 
-  const payload = jwt.decode(token) as { email: string };
+  const response = await axios.get("http://localhost:8080/me", {
+    headers: {
+      Cookie: `JSESSIONID=${token}`,
+    },
+  })
+  const email = response.data.name;
 
-  if (!payload.email) {
+  if (!email) {
     return res.status(401).json({
       errorMessage: "Unauthorized request",
     });
@@ -22,22 +25,10 @@ export default async function handler(
     id: "id",
     firstName: "firstName",
     lastName: "lastName",
-    email: payload.email,
+    email: email,
     city: "city",
     phone: "phone"
   }
 
-  if (!user) {
-    return res.status(401).json({
-      errorMessage: "User not found",
-    });
-  }
-
-  return res.json({
-    id: user.id,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    phone: user.phone,
-    city: user.city,
-  });
+  return res.json(user);
 }

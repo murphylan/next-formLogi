@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getCookie, deleteCookie } from "cookies-next";
+import { deleteCookie } from "cookies-next";
 import { useContext } from "react";
 import { AuthenticationContext } from "../app/context/AuthContext";
 
@@ -28,11 +28,20 @@ const useAuth = () => {
           password,
         }
       );
-      setAuthState({
-        data: response.data,
-        error: null,
-        loading: false,
-      });
+      if ("success" === response.data.status) {
+        response.data.email = email;
+        setAuthState({
+          data: response.data,
+          error: null,
+          loading: false,
+        });
+      } else {
+        setAuthState({
+          data: null,
+          error: null,
+          loading: false,
+        });
+      }
     } catch (error: any) {
       setAuthState({
         data: null,

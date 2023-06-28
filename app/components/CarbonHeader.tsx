@@ -15,7 +15,7 @@ import { useRouter, usePathname } from "next/navigation";
 import useAuth from '@/hooks/useAuth';
 
 const CarbonHeader = () => {
-  const { data, loading } = useContext(AuthenticationContext);
+  const { data, loading, setAuthState } = useContext(AuthenticationContext);
   const { signout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -58,6 +58,11 @@ const CarbonHeader = () => {
                   tooltipAlignment="end">
                   <Login size={20}
                     onClick={() => {
+                      setAuthState({
+                        data: null,
+                        error: null,
+                        loading: true,
+                      });
                       if (pathname === "login") return;
                       router.push(`/login`);
                     }}
