@@ -1,52 +1,84 @@
 import { NextApiRequest, NextApiResponse } from "next";
+import validator from "validator";
+import bcrypt from "bcrypt";
+import * as jose from "jose";
 import { setCookie } from "cookies-next";
-import axios from "axios";
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  if (req.method === "POST") {
+    const errors: string[] = [];
+    const { email, password } = req.body;
 
-  const { email, password } = req.body;
+    const validationSchema = [
+      {
+        valid: validator.isEmail(email),
+        errorMessage: "Email is invalid",
+      },
+      {
+        valid: validator.isLength(password, {
+          min: 1,
+        }),
+        errorMessage: "Password is invalid",
+      },
+    ];
 
-  if (!email || !password) {
-    // Sends a HTTP bad request error code
-    return res.status(400).json({ data: 'First or last name not found' })
+    validationSchema.forEach((check) => {
+      if (!check.valid) {
+        errors.push(check.errorMessage);
+      }
+    });
+
+    if (errors.length) {
+      return res.status(400).json({ errorMessage: errors[0] });
+    }
+
+    const user = {
+      id: "id",
+      firstName: "firstName",
+      lastName: "lastName",
+      email: email,
+      city: "city",
+      password: password,
+      phone: "phone"
+    }
+
+    if (!user) {
+      return res
+        .status(401)
+        .json({ errorMessage: "Email or password is invalid" });
+    }
+
+    // const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = (password === user.password);
+
+    if (!isMatch) {
+      return res
+        .status(401)
+        .json({ errorMessage: "Email or password is invalid" });
+    }
+
+    const alg = "HS256";
+
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+
+    const token = await new jose.SignJWT({ email: user.email })
+      .setProtectedHeader({ alg })
+      .setExpirationTime("24h")
+      .sign(secret);
+
+    setCookie("jwt", token, { req, res, maxAge: 60 * 6 * 24 });
+
+    return res.status(200).json({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      city: user.city,
+    });
   }
 
-  // 发送请求获取登录页面
-  const response = await axios.get('http://localhost:8080/login', { withCredentials: true })
-
-  // 提取CSRF令牌的值
-  const csrfToken = response.data.match(/<input name="_csrf" type="hidden" value="([^"]*)"/)[1];
-  // 获取Cookie
-  const cookies = response.headers?.['set-cookie'] ?? '';
-
-  // 构造登录请求的数据
-  const formData = new URLSearchParams();
-  formData.append('username', email);
-  formData.append('password', password);
-  formData.append('_csrf', csrfToken || ''); // 避免 csrfToken 为 null 或 undefined
-
-  // 发送第二个请求并携带cookie
-  const loginResponse = await axios.post('http://localhost:8080/login', formData, {
-    withCredentials: true,
-    headers: {
-      Cookie: cookies, // 携带cookie
-      'X-XSRF-Token': csrfToken
-    }
-  })
-
-  const login_cookies = loginResponse.headers?.['set-cookie'] ?? '';
-  const jsessionid = login_cookies[1]?.split(';')
-    .map(cookie => cookie.trim())
-    .find(cookie => cookie.startsWith('JSESSIONID='))
-    ?.split('=')[1];
-
-  // 打印session令牌的值
-  console.log('jsessionid:', jsessionid);
-  setCookie("jwt", jsessionid, { req, res, maxAge: 60 * 6 * 24 });
-
-  return res.status(200).json(loginResponse.data)
-
+  return res.status(404).json("Unknown endpoint");
 }
